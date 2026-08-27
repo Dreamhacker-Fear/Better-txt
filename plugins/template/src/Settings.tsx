@@ -5,31 +5,35 @@ const { FormSection, FormInput } = Forms;
 
 export default function Settings() {
     return (
-        <FormSection title="Sentence Style">
+        <FormSection title="Style">
             <FormInput
-                title="Sentence Beginning"
-                value={storage.beginning ?? ""}
-                placeholder="Example: > "
-                onChange={(value: string) => {
-                    storage.beginning = value;
+                title="Density"
+                value={String(storage.density ?? 0.25)}
+                placeholder="0.25"
+                onChange={(value) => {
+                    const number = Number(value);
+
+                    if (!Number.isNaN(number)) {
+                        storage.density = Math.max(0, Math.min(1, number));
+                    }
                 }}
             />
 
             <FormInput
-                title="Sentence Separator"
-                value={storage.separator ?? ", "}
-                placeholder="Example: , "
-                onChange={(value: string) => {
-                    storage.separator = value;
+                title="Space Character"
+                value={storage.space ?? " "}
+                placeholder=" "
+                onChange={(value) => {
+                    storage.space = value;
                 }}
             />
 
             <FormInput
-                title="Sentence Ending"
-                value={storage.ending ?? "."}
-                placeholder="Example: ."
-                onChange={(value: string) => {
-                    storage.ending = value;
+                title="Extra Characters"
+                value={storage.extra ?? ""}
+                placeholder="Add custom characters"
+                onChange={(value) => {
+                    storage.extra = value;
                 }}
             />
         </FormSection>
