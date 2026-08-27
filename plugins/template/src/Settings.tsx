@@ -1,80 +1,46 @@
 import { Forms } from "@vendetta/ui/components";
 import { storage } from "@vendetta/plugin";
 
-const { FormSection, FormRow, FormInput } = Forms;
-
-function ToggleRow({
-    title,
-    description,
-    value,
-    onChange,
-}: {
-    title: string;
-    description: string;
-    value: boolean;
-    onChange: (value: boolean) => void;
-}) {
-    return (
-        <FormRow
-            label={title}
-            subLabel={description}
-            trailing={
-                <Forms.FormSwitch
-                    value={value}
-                    onValueChange={onChange}
-                />
-            }
-        />
-    );
-}
+const { FormSection, FormInput, FormRow } = Forms;
 
 export default function Settings() {
+    const savedStyles = storage.savedStyles ?? {};
+
+    const saveStyle = () => {
+        const name = String(storage.styleName ?? "").trim();
+
+        if (!name) return;
+
+        storage.savedStyles = {
+            ...savedStyles,
+            [name]: {
+                beginning: storage.beginning ?? "",
+                ending: storage.ending ?? "",
+            },
+        };
+
+        storage.activeStyle = name;
+        storage.styleName = "";
+    };
+
+    const selectStyle = (name: string) => {
+        const style = storage.savedStyles?.[name];
+
+        if (!style) return;
+
+        storage.activeStyle = name;
+        storage.beginning = style.beginning;
+        storage.ending = style.ending;
+    };
+
     return (
         <>
-            <FormSection title="Style Presets">
-                <ToggleRow
-                    title="Mystic"
-                    description="Uses mystical symbols such as 𓂃, ࣪˖ and ♱."
-                    value={storage.mystic ?? true}
-                    onChange={(value) => {
-                        storage.mystic = value;
-                    }}
-                />
-
-                <ToggleRow
-                    title="Gothic"
-                    description="Uses darker symbols such as ༒︎, ♱, ༻ and ༺."
-                    value={storage.gothic ?? true}
-                    onChange={(value) => {
-                        storage.gothic = value;
-                    }}
-                />
-
-                <ToggleRow
-                    title="Bracket"
-                    description="Uses matching ⦮ and ⦯ decorations."
-                    value={storage.bracket ?? true}
-                    onChange={(value) => {
-                        storage.bracket = value;
-                    }}
-                />
-
-                <ToggleRow
-                    title="Random Interior"
-                    description="Randomly places decorations between words."
-                    value={storage.randomInterior ?? true}
-                    onChange={(value) => {
-                        storage.randomInterior = value;
-                    }}
-                />
-            </FormSection>
-
-            <FormSection title="Custom Style">
+            <FormSection title="Current Style">
                 <FormInput
                     title="Beginning"
-                    subLabel="Decoration placed before the sentence."
+                    subLabel="Text or symbols placed before your message."
                     value={storage.beginning ?? ""}
-                    placeholder="Example: ࣪˖ ִֶ"
+                    placeholder="Example: ࣪˖ ִֶ "
                     onChange={(value: string) => {
                         storage.beginning = value;
                     }}
@@ -82,61 +48,74 @@ export default function Settings() {
 
                 <FormInput
                     title="Ending"
-                    subLabel="Matching decoration placed after the sentence."
+                    subLabel="Text or symbols placed after your message."
                     value={storage.ending ?? ""}
                     placeholder="Example: ִֶ ˖࣪"
                     onChange={(value: string) => {
                         storage.ending = value;
                     }}
                 />
+            </FormSection>
 
+            <FormSection title="Save Style">
                 <FormInput
-                    title="Interior Characters"
-                    subLabel="Characters randomly placed around words."
-                    value={storage.interior ?? ""}
-                    placeholder="Example: 𓂃 ࣪˖ ִֶ ♱"
+                    title="Style Name"
+                    subLabel="Give your current beginning and ending a name."
+                    value={storage.styleName ?? ""}
+                    placeholder="Example: Ultron"
                     onChange={(value: string) => {
-                        storage.interior = value;
+                        storage.styleName = value;
                     }}
                 />
 
-                <FormInput
-                    title="Density"
-                    subLabel="0 = none, 1 = maximum."
-                    value={String(storage.density ?? 0.25)}
-                    placeholder="0.25"
-                    onChange={(value: string) => {
-                        const number = Number(value);
-
-                        if (!Number.isNaN(number)) {
-                            storage.density = Math.max(
-                                0,
-                                Math.min(1, number)
-                            );
-                        }
-                    }}
+                <FormRow
+                    label="Save Current Style"
+                    subLabel="Save the beginning and ending above."
+                    trailing={
+                        <Forms.FormButton
+                            text="Save"
+                            onPress={saveStyle}
+                        />
+                    }
                 />
             </FormSection>
 
-            <FormSection title="How It Works">
+            <FormSection title="Saved Styles">
+                {Object.keys(savedStyles).length === 0 ? (
+                    <FormRow
+                        label="No Saved Styles"
+                        subLabel="Create a style above and save it."
+                    />
+                ) : (
+                    Object.keys(savedStyles).map((name) => (
+                        <FormRow
+                            key={name}
+                            label={name}
+                            subLabel={
+                                storage.activeStyle === name
+                                    ? "Active style"
+                                    : "Tap to use this style"
+                            }
+                            onPress={() => selectStyle(name)}
+                        />
+                    ))
+                )}
+            </FormSection>
+
+            <FormSection title="Style Mode">
                 <FormRow
-                    label="Command"
-                    subLabel="Use /style followed by the text you want to decorate."
+                    label="How to enable"
+                    subLabel="Use /style on to automatically style your messages."
                 />
 
                 <FormRow
-                    label="Matching Decorations"
-                    subLabel="Beginning and ending decorations are selected as matching pairs."
+                    label="How to disable"
+                    subLabel="Use /style off to return to normal messages."
                 />
 
                 <FormRow
-                    label="Normal Spaces"
-                    subLabel="Spaces between words remain normal spaces."
-                />
-
-                <FormRow
-                    label="Randomization"
-                    subLabel="Interior decorations can be randomly inserted between words."
+                    label="What gets changed"
+                    subLabel="Only your chosen beginning and ending are added. Your message stays unchanged."
                 />
             </FormSection>
         </>
