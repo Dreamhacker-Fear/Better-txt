@@ -1,5 +1,6 @@
 import { metro } from "@vendetta/metro/common";
 import { before } from "@vendetta/patcher";
+import Settings from "./Settings";
 
 let unpatch: (() => void) | null = null;
 
@@ -81,5 +82,7 @@ export default {
         } catch {
             unpatch = null;
         }
-    }
+    },
+
+    settings: Settings
 };
