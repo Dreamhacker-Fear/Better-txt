@@ -2,16 +2,19 @@ name: Build and deploy
 
 on:
   push:
-    branches: [master]
+    branches:
+      - master
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     permissions:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Set up job
+        uses: actions/checkout@v4
 
       - name: Prepare environment
         uses: actions/setup-node@v4
@@ -22,7 +25,7 @@ jobs:
         run: npm install --global pnpm
 
       - name: Install deps
-        run: pnpm install
+        run: pnpm install --dangerously-allow-all-builds
 
       - name: Build plugin(s)
         run: node ./build.mjs
