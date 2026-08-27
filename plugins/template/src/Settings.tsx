@@ -6,8 +6,8 @@ const { FormSection, FormInput, FormRow } = Forms;
 export default function Settings() {
     const savedStyles = storage.savedStyles ?? {};
 
-    const saveStyle = () => {
-        const name = String(storage.styleName ?? "").trim();
+    const saveStyle = (name: string) => {
+        name = name.trim();
 
         if (!name) return;
 
@@ -29,8 +29,8 @@ export default function Settings() {
         if (!style) return;
 
         storage.activeStyle = name;
-        storage.beginning = style.beginning;
-        storage.ending = style.ending;
+        storage.beginning = style.beginning ?? "";
+        storage.ending = style.ending ?? "";
     };
 
     return (
@@ -38,7 +38,7 @@ export default function Settings() {
             <FormSection title="Current Style">
                 <FormInput
                     title="Beginning"
-                    subLabel="Text or symbols placed before your message."
+                    subLabel="Put anything here that should appear before your message."
                     value={storage.beginning ?? ""}
                     placeholder="Example: ࣪˖ ִֶ "
                     onChange={(value: string) => {
@@ -48,7 +48,7 @@ export default function Settings() {
 
                 <FormInput
                     title="Ending"
-                    subLabel="Text or symbols placed after your message."
+                    subLabel="Put anything here that should appear after your message."
                     value={storage.ending ?? ""}
                     placeholder="Example: ִֶ ˖࣪"
                     onChange={(value: string) => {
@@ -60,23 +60,15 @@ export default function Settings() {
             <FormSection title="Save Style">
                 <FormInput
                     title="Style Name"
-                    subLabel="Give your current beginning and ending a name."
+                    subLabel="Type a name and press Enter to save the current beginning and ending."
                     value={storage.styleName ?? ""}
                     placeholder="Example: Ultron"
                     onChange={(value: string) => {
                         storage.styleName = value;
                     }}
-                />
-
-                <FormRow
-                    label="Save Current Style"
-                    subLabel="Save the beginning and ending above."
-                    trailing={
-                        <Forms.FormButton
-                            text="Save"
-                            onPress={saveStyle}
-                        />
-                    }
+                    onSubmit={(value: string) => {
+                        saveStyle(value);
+                    }}
                 />
             </FormSection>
 
@@ -84,7 +76,7 @@ export default function Settings() {
                 {Object.keys(savedStyles).length === 0 ? (
                     <FormRow
                         label="No Saved Styles"
-                        subLabel="Create a style above and save it."
+                        subLabel="Save a style above to see it here."
                     />
                 ) : (
                     Object.keys(savedStyles).map((name) => (
@@ -104,18 +96,18 @@ export default function Settings() {
 
             <FormSection title="Style Mode">
                 <FormRow
-                    label="How to enable"
-                    subLabel="Use /style on to automatically style your messages."
+                    label="/style on"
+                    subLabel="Automatically add your chosen beginning and ending to messages."
                 />
 
                 <FormRow
-                    label="How to disable"
-                    subLabel="Use /style off to return to normal messages."
+                    label="/style off"
+                    subLabel="Turn automatic styling off."
                 />
 
                 <FormRow
-                    label="What gets changed"
-                    subLabel="Only your chosen beginning and ending are added. Your message stays unchanged."
+                    label="How it works"
+                    subLabel="Your message itself is not changed. Only the saved beginning and ending are added."
                 />
             </FormSection>
         </>
