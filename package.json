@@ -1,6 +1,18 @@
-packages:
-  - plugins/*
-
-onlyBuiltDependencies:
-  - "@swc/core"
-  - esbuild
+{
+  "private": true,
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@swc/helpers": "^0.4.14"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^24.1.0",
+    "@rollup/plugin-node-resolve": "^15.3.1",
+    "@swc/core": "^1.16.1",
+    "esbuild": "^0.16.17",
+    "rollup": "^3.30.0",
+    "rollup-plugin-esbuild": "^5.0.0",
+    "vendetta-types": "2.4.21"
+  }
+}
