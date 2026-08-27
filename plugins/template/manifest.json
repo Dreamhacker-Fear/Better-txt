@@ -1,9 +1,9 @@
 {
-  "name": "Sentence Style",
-  "description": "Automatically improves the formatting of your messages.",
+  "name": "Better TXT",
+  "description": "Improves text formatting in Discord.",
   "authors": [
     {
-      "name": "rootkit_tm",
+      "name": "luca.gng",
       "id": "1367545898099408986"
     }
   ],
