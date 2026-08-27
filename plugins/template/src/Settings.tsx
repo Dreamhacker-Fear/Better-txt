@@ -7,9 +7,18 @@ export default function Settings() {
     return (
         <FormSection title="Sentence Style">
             <FormInput
+                title="Sentence Beginning"
+                value={storage.beginning ?? ""}
+                placeholder="Example: > "
+                onChange={(value: string) => {
+                    storage.beginning = value;
+                }}
+            />
+
+            <FormInput
                 title="Sentence Separator"
                 value={storage.separator ?? ", "}
-                placeholder=", "
+                placeholder="Example: , "
                 onChange={(value: string) => {
                     storage.separator = value;
                 }}
@@ -18,7 +27,7 @@ export default function Settings() {
             <FormInput
                 title="Sentence Ending"
                 value={storage.ending ?? "."}
-                placeholder="."
+                placeholder="Example: ."
                 onChange={(value: string) => {
                     storage.ending = value;
                 }}
