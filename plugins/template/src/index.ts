@@ -1,7 +1,8 @@
 import Settings from "./Settings";
-import { metro } from "@vendetta/metro/common";
 import { commands } from "@vendetta";
 import { storage } from "@vendetta/plugin";
+import { findByProps } from "@vendetta/metro";
+import { before } from "@vendetta/patcher";
 
 const patches: (() => void)[] = [];
 
@@ -14,190 +15,102 @@ function getStyle() {
 
 function styleText(text: string) {
     const style = getStyle();
-
     return `${style.beginning}${text}${style.ending}`;
 }
 
-function showConfirmation(text: string) {
+function notify(message: string) {
     try {
-        const Toasts = metro.findByProps(
-            "open",
-            "showToast",
-        );
+        const { showToast } = findByProps("showToast");
 
-        if (Toasts?.open) {
-            Toasts.open(text);
-            return;
+        if (showToast) {
+            showToast(message);
         }
-
-        if (Toasts?.showToast) {
-            Toasts.showToast(text);
-        }
-    } catch (error) {
-        console.log("[Better TXT] Confirmation:", text);
-    }
+    } catch {}
 }
 
 export default {
     settings: Settings,
 
     onLoad() {
+        storage.enabled = storage.enabled ?? false;
+        storage.savedStyles = storage.savedStyles ?? {};
+
+        // /style on
+        patches.push(
+            commands.registerCommand({
+                name: "style on",
+                description: "Turn Style Mode on.",
+                execute: () => {
+                    storage.enabled = true;
+                    notify("Style Mode: ON");
+                },
+            }),
+        );
+
+        // /style off
+        patches.push(
+            commands.registerCommand({
+                name: "style off",
+                description: "Turn Style Mode off.",
+                execute: () => {
+                    storage.enabled = false;
+                    notify("Style Mode: OFF");
+                },
+            }),
+        );
+
         try {
-            storage.enabled = storage.enabled ?? false;
-            storage.savedStyles =
-                storage.savedStyles ?? {};
+            const MessageActions =
+                findByProps("sendMessage");
 
-            const command =
-                commands.registerCommand({
-                    name: "style",
-                    description:
-                        "Control automatic text styling.",
-                    options: [
-                        {
-                            type: 3,
-                            required: true,
-                            name: "mode",
-                            description:
-                                "Type on, off, or status.",
-                        },
-                    ],
+            if (!MessageActions?.sendMessage) return;
 
-                    execute: (rawArgs: any[]) => {
+            patches.push(
+                before(
+                    "sendMessage",
+                    MessageActions,
+                    (args: any[]) => {
                         try {
-                            const args = new Map(
-                                rawArgs.map((option) => [
-                                    option.name,
-                                    option,
-                                ]),
-                            );
-
-                            const mode = String(
-                                args.get("mode")?.value ?? "",
-                            ).toLowerCase();
-
-                            if (mode === "on") {
-                                storage.enabled = true;
-
-                                const style = getStyle();
-
-                                showConfirmation(
-                                    `Style Mode enabled\nBeginning: ${style.beginning || "(none)"}\nEnding: ${style.ending || "(none)"}`,
-                                );
-
+                            if (
+                                !storage.enabled ||
+                                !args[1] ||
+                                typeof args[1].content !== "string"
+                            ) {
                                 return;
                             }
 
-                            if (mode === "off") {
-                                storage.enabled = false;
-
-                                showConfirmation(
-                                    "Style Mode disabled",
-                                );
-
+                            if (
+                                args[1].content.startsWith("/") ||
+                                args[1]._betterTxtStyled
+                            ) {
                                 return;
                             }
 
-                            if (mode === "status") {
-                                const style = getStyle();
+                            args[1].content =
+                                styleText(args[1].content);
 
-                                showConfirmation(
-                                    `Style Mode: ${
-                                        storage.enabled
-                                            ? "ON"
-                                            : "OFF"
-                                    }\nBeginning: ${
-                                        style.beginning ||
-                                        "(none)"
-                                    }\nEnding: ${
-                                        style.ending ||
-                                        "(none)"
-                                    }`,
-                                );
-
-                                return;
-                            }
-
-                            showConfirmation(
-                                "Use /style on, /style off, or /style status",
-                            );
+                            args[1]._betterTxtStyled = true;
                         } catch (error) {
                             console.error(
-                                "[Better TXT] Command error:",
+                                "[Better TXT] Formatting error:",
                                 error,
                             );
                         }
                     },
-                });
-
-            patches.push(command);
-
-            const MessageActions =
-                metro.findByProps("sendMessage");
-
-            if (!MessageActions?.sendMessage) {
-                console.warn(
-                    "[Better TXT] sendMessage not found",
-                );
-                return;
-            }
-
-            const originalSend =
-                MessageActions.sendMessage;
-
-            MessageActions.sendMessage =
-                function (
-                    channelId: string,
-                    message: any,
-                    ...rest: any[]
-                ) {
-                    try {
-                        if (
-                            storage.enabled &&
-                            message &&
-                            typeof message.content ===
-                                "string" &&
-                            !message._betterTxtStyled &&
-                            !message.content.startsWith("/")
-                        ) {
-                            message = {
-                                ...message,
-                                content: styleText(
-                                    message.content,
-                                ),
-                                _betterTxtStyled: true,
-                            };
-                        }
-                    } catch (error) {
-                        console.error(
-                            "[Better TXT] Formatting error:",
-                            error,
-                        );
-                    }
-
-                    return originalSend.call(
-                        this,
-                        channelId,
-                        message,
-                        ...rest,
-                    );
-                };
-
-            patches.push(() => {
-                MessageActions.sendMessage =
-                    originalSend;
-            });
+                ),
+            );
         } catch (error) {
             console.error(
-                "[Better TXT] Load error:",
+                "[Better TXT] Failed to hook messages:",
                 error,
             );
         }
     },
 
     onUnload() {
-        for (const patch of patches) {
+        for (const unpatch of patches) {
             try {
-                patch();
+                unpatch();
             } catch {}
         }
 
