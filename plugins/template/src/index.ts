@@ -1,16 +1,16 @@
-import { metro } from "@vendetta/metro/common";
-import { commands } from "@vendetta";
-import { storage } from "@vendetta/plugin";
 import Settings from "./Settings";
+import { commands } from "@vendetta";
+import { findByProps, findByStoreName } from "@vendetta/metro";
+import { storage } from "@vendetta/plugin";
 
-const disposers: (() => void)[] = [];
+const patches: (() => void)[] = [];
 
 const pairs = [
     ["⦮", "⦯"],
     ["𓂃 ࣪˖ ִֶ", "ִֶ ˖࣪ 𓂃"],
     ["‿̩͙⊱༒︎༻♱༺༒︎⊰‿̩͙", "‿̩͙⊰༒︎༺♱༻༒︎⊱‿̩͙"],
     ["𓂃", "𓂃"],
-    ["♱", "♱"]
+    ["♱", "♱"],
 ];
 
 const decorations = [
@@ -22,7 +22,7 @@ const decorations = [
     "༻",
     "༺",
     "⊱",
-    "⊰"
+    "⊰",
 ];
 
 function random<T>(array: T[]): T {
@@ -31,18 +31,51 @@ function random<T>(array: T[]): T {
 
 function styleText(text: string): string {
     const words = text.trim().split(/\s+/);
+
+    if (!words.length || !words[0]) return text;
+
     const pair = random(pairs);
     const density = Number(storage.density ?? 0.25);
 
-    const result = words.map((word, index) => {
-        if (index > 0 && Math.random() < density) {
-            return `${random(decorations)} ${word}`;
-        }
+    const styled = words
+        .map((word, index) => {
+            if (
+                index > 0 &&
+                index < words.length &&
+                Math.random() < density
+            ) {
+                return `${random(decorations)} ${word}`;
+            }
 
-        return word;
-    }).join(" ");
+            return word;
+        })
+        .join(" ");
 
-    return `${pair[0]} ${result} ${pair[1]}`;
+    return `${pair[0]} ${styled} ${pair[1]}`;
+}
+
+function sendText(text: string, ephemeral = false) {
+    const { getChannelId } =
+        findByStoreName("SelectedChannelStore");
+
+    const { sendMessage } =
+        findByProps("sendMessage");
+
+    const channelId = getChannelId();
+
+    if (!channelId) {
+        throw new Error("Could not find current channel");
+    }
+
+    sendMessage(
+        channelId,
+        {
+            content: text,
+            _command_output: true,
+        },
+        undefined,
+        ephemeral,
+    );
 }
 
 export default {
@@ -50,61 +83,68 @@ export default {
 
     onLoad() {
         try {
-            const MessageActions = metro.findByProps("sendMessage");
-
-            if (!MessageActions) return;
-
             const command = commands.registerCommand({
                 name: "style",
-                description: "Randomly style text",
+                description: "Style text with randomized decorations.",
                 options: [
                     {
+                        type: 3,
+                        required: true,
                         name: "input",
                         description: "Text to style",
-                        type: 3,
-                        required: true
-                    }
+                    },
+                    {
+                        type: 5,
+                        required: false,
+                        name: "send",
+                        description: "Send the styled text",
+                    },
                 ],
-                execute: (args: any[]) => {
-                    const input = args?.find(
-                        (arg) => arg?.name === "input"
-                    )?.value;
 
-                    if (!input) return;
-
-                    const output = styleText(input);
-
+                execute: (rawArgs: any[]) => {
                     try {
-                        const channelId =
-                            metro.findByProps("getChannelId")?.getChannelId?.();
-
-                        if (!channelId) return;
-
-                        MessageActions.sendMessage(
-                            channelId,
-                            {
-                                content: output
-                            }
+                        const args = new Map(
+                            rawArgs.map((option) => [
+                                option.name,
+                                option,
+                            ]),
                         );
+
+                        const input = args.get("input")?.value;
+
+                        if (!input) return;
+
+                        const output = styleText(input);
+
+                        const shouldSend =
+                            args.get("send")?.value ?? true;
+
+                        sendText(output, !shouldSend);
                     } catch (error) {
-                        console.error("[Better TXT] Send error:", error);
+                        console.error(
+                            "[Better TXT] Style command error:",
+                            error,
+                        );
                     }
-                }
+                },
             });
 
-            disposers.push(command);
+            patches.push(command);
         } catch (error) {
-            console.error("[Better TXT] Load error:", error);
+            console.error(
+                "[Better TXT] Failed to register /style:",
+                error,
+            );
         }
     },
 
     onUnload() {
-        for (const dispose of disposers) {
+        for (const patch of patches) {
             try {
-                dispose();
+                patch();
             } catch {}
         }
 
-        disposers.length = 0;
-    }
+        patches.length = 0;
+    },
 };
