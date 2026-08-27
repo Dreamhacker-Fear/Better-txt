@@ -1,9 +1,9 @@
-import Settings from "./Settings";
-
+import { metro } from "@vendetta/metro/common";
 import { commands } from "@vendetta";
 import { storage } from "@vendetta/plugin";
+import Settings from "./Settings";
 
-const patches: (() => void)[] = [];
+const disposers: (() => void)[] = [];
 
 const pairs = [
     ["⦮", "⦯"],
@@ -30,28 +30,19 @@ function random<T>(array: T[]): T {
 }
 
 function styleText(text: string): string {
-    const input = text.trim();
-
-    if (!input) return input;
-
+    const words = text.trim().split(/\s+/);
     const pair = random(pairs);
-    const words = input.split(/\s+/);
-
     const density = Number(storage.density ?? 0.25);
 
-    const styled = words.map((word, index) => {
-        if (
-            index > 0 &&
-            index < words.length &&
-            Math.random() < density
-        ) {
+    const result = words.map((word, index) => {
+        if (index > 0 && Math.random() < density) {
             return `${random(decorations)} ${word}`;
         }
 
         return word;
     }).join(" ");
 
-    return `${pair[0]} ${styled} ${pair[1]}`;
+    return `${pair[0]} ${result} ${pair[1]}`;
 }
 
 export default {
@@ -59,54 +50,61 @@ export default {
 
     onLoad() {
         try {
-            patches.push(
-                commands.registerCommand({
-                    name: "style",
-                    description: "Randomly style text",
-                    options: [
-                        {
-                            name: "input",
-                            description: "Text to style",
-                            type: 3,
-                            required: true
-                        }
-                    ],
-                    execute: (args: any[]) => {
-                        try {
-                            const input = args?.find(
-                                (x) => x?.name === "input"
-                            )?.value;
+            const MessageActions = metro.findByProps("sendMessage");
 
-                            if (!input) return;
+            if (!MessageActions) return;
 
-                            console.log(
-                                "[Better TXT]",
-                                styleText(input)
-                            );
-                        } catch (error) {
-                            console.error(
-                                "[Better TXT] Command error:",
-                                error
-                            );
-                        }
+            const command = commands.registerCommand({
+                name: "style",
+                description: "Randomly style text",
+                options: [
+                    {
+                        name: "input",
+                        description: "Text to style",
+                        type: 3,
+                        required: true
                     }
-                })
-            );
+                ],
+                execute: (args: any[]) => {
+                    const input = args?.find(
+                        (arg) => arg?.name === "input"
+                    )?.value;
+
+                    if (!input) return;
+
+                    const output = styleText(input);
+
+                    try {
+                        const channelId =
+                            metro.findByProps("getChannelId")?.getChannelId?.();
+
+                        if (!channelId) return;
+
+                        MessageActions.sendMessage(
+                            channelId,
+                            {
+                                content: output
+                            }
+                        );
+                    } catch (error) {
+                        console.error("[Better TXT] Send error:", error);
+                    }
+                }
+            });
+
+            disposers.push(command);
         } catch (error) {
-            console.error(
-                "[Better TXT] Failed to register command:",
-                error
-            );
+            console.error("[Better TXT] Load error:", error);
         }
     },
 
     onUnload() {
-        for (const unpatch of patches) {
+        for (const dispose of disposers) {
             try {
-                unpatch();
+                dispose();
             } catch {}
         }
 
-        patches.length = 0;
+        disposers.length = 0;
     }
 };
