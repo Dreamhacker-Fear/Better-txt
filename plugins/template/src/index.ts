@@ -5,47 +5,24 @@ import { storage } from "@vendetta/plugin";
 
 const patches: (() => void)[] = [];
 
-function getCurrentChannel() {
-    try {
-        return metro
-            .findByProps("getChannelId")
-            ?.getChannelId?.();
-    } catch {
-        return null;
-    }
-}
-
-function sendMessage(channelId: string, content: string) {
-    const MessageActions = metro.findByProps("sendMessage");
-
-    if (!MessageActions?.sendMessage) {
-        throw new Error("sendMessage not found");
-    }
-
-    return MessageActions.sendMessage(channelId, {
-        content,
-    });
-}
-
-function styleText(text: string): string {
-    const beginning = String(storage.beginning ?? "");
-    const ending = String(storage.ending ?? "");
-
-    return `${beginning}${text}${ending}`;
-}
-
 function getActiveStyle() {
-    const saved = storage.savedStyles ?? {};
-    const active = storage.activeStyle;
+    const savedStyles = storage.savedStyles ?? {};
+    const activeStyle = storage.activeStyle;
 
-    if (active && saved[active]) {
-        return saved[active];
+    if (activeStyle && savedStyles[activeStyle]) {
+        return savedStyles[activeStyle];
     }
 
     return {
         beginning: storage.beginning ?? "",
         ending: storage.ending ?? "",
     };
+}
+
+function styleText(text: string): string {
+    const style = getActiveStyle();
+
+    return `${style.beginning}${text}${style.ending}`;
 }
 
 export default {
@@ -56,41 +33,44 @@ export default {
             storage.enabled = storage.enabled ?? false;
             storage.savedStyles = storage.savedStyles ?? {};
 
-            const styleCommand = commands.registerCommand({
+            const command = commands.registerCommand({
                 name: "style",
-                description: "Turn automatic sentence styling on or off.",
+                description: "Turn automatic text styling on or off.",
                 options: [
                     {
-                        name: "mode",
-                        description: "Enable or disable Style Mode.",
                         type: 3,
                         required: true,
-                        choices: [
-                            {
-                                name: "On",
-                                value: "on",
-                            },
-                            {
-                                name: "Off",
-                                value: "off",
-                            },
-                        ],
+                        name: "mode",
+                        description: "Type on or off",
                     },
                 ],
 
-                execute: (args: any[]) => {
+                execute: (rawArgs: any[]) => {
                     try {
-                        const mode = args?.find(
-                            (arg) => arg?.name === "mode",
-                        )?.value;
+                        const args = new Map(
+                            rawArgs.map((option) => [
+                                option.name,
+                                option,
+                            ]),
+                        );
+
+                        const mode = String(
+                            args.get("mode")?.value ?? "",
+                        ).toLowerCase();
 
                         if (mode === "on") {
                             storage.enabled = true;
+                            return;
                         }
 
                         if (mode === "off") {
                             storage.enabled = false;
+                            return;
                         }
+
+                        console.log(
+                            "[Better TXT] Use /style on or /style off",
+                        );
                     } catch (error) {
                         console.error(
                             "[Better TXT] Command error:",
@@ -100,14 +80,14 @@ export default {
                 },
             });
 
-            patches.push(styleCommand);
+            patches.push(command);
 
             const MessageActions =
                 metro.findByProps("sendMessage");
 
             if (!MessageActions?.sendMessage) {
                 console.warn(
-                    "[Better TXT] sendMessage not found",
+                    "[Better TXT] sendMessage was not found",
                 );
                 return;
             }
@@ -128,14 +108,11 @@ export default {
                         !message._betterTxtStyled &&
                         !message.content.startsWith("/")
                     ) {
-                        const style = getActiveStyle();
-
                         message = {
                             ...message,
-                            content:
-                                style.beginning +
-                                message.content +
-                                style.ending,
+                            content: styleText(
+                                message.content,
+                            ),
                             _betterTxtStyled: true,
                         };
                     }
@@ -160,7 +137,7 @@ export default {
             });
         } catch (error) {
             console.error(
-                "[Better TXT] Failed to load:",
+                "[Better TXT] Load error:",
                 error,
             );
         }
