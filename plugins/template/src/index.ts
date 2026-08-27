@@ -1,24 +1,21 @@
 import { metro } from "@vendetta/metro/common";
 import { before } from "@vendetta/patcher";
-import { storage } from "@vendetta/plugin";
 
 let unpatch: (() => void) | null = null;
 
-function formatSentence(text: string): string {
-    let result = text.trim();
+function formatText(text: string): string {
+    if (!text.trim()) return text;
 
-    if (!result) return text;
+    let result = text.trim();
 
     result = result.charAt(0).toUpperCase() + result.slice(1);
 
     result = result
-        .replace(/\bi\b/g, "I")
         .replace(/\bim\b/gi, "I'm")
         .replace(/\bive\b/gi, "I've")
         .replace(/\bid\b/gi, "I'd")
         .replace(/\bill\b/gi, "I'll")
         .replace(/\bwhats\b/gi, "what's")
-        .replace(/\bthats\b/gi, "that's")
         .replace(/\bthats\b/gi, "that's")
         .replace(/\bdont\b/gi, "don't")
         .replace(/\bcant\b/gi, "can't")
@@ -31,8 +28,7 @@ function formatSentence(text: string): string {
         .replace(/\bwerent\b/gi, "weren't")
         .replace(/\bshouldnt\b/gi, "shouldn't")
         .replace(/\bcouldnt\b/gi, "couldn't")
-        .replace(/\bwouldnt\b/gi, "wouldn't")
-        .replace(/\bimma\b/gi, "I'm gonna");
+        .replace(/\bwouldnt\b/gi, "wouldn't");
 
     result = result.replace(/\s+([,.!?])/g, "$1");
     result = result.replace(/([,.!?])([^\s])/g, "$1 $2");
@@ -41,7 +37,7 @@ function formatSentence(text: string): string {
         if (/^(who|what|when|where|why|how|is|are|do|does|did|can|could|would|will|should)\b/i.test(result)) {
             result += "?";
         } else {
-            result += storage.ending ?? ".";
+            result += ".";
         }
     }
 
@@ -50,32 +46,40 @@ function formatSentence(text: string): string {
 
 export default {
     onLoad() {
-        const MessageActions = metro.findByProps("sendMessage");
+        try {
+            const MessageActions = metro.findByProps("sendMessage");
 
-        if (!MessageActions) return;
+            if (!MessageActions) return;
 
-        unpatch = before(
-            "sendMessage",
-            MessageActions,
-            (args: any[]) => {
-                for (const arg of args) {
-                    if (
-                        arg &&
-                        typeof arg === "object" &&
-                        typeof arg.content === "string"
-                    ) {
-                        arg.content = formatSentence(arg.content);
-                        break;
-                    }
+            unpatch = before(
+                "sendMessage",
+                MessageActions,
+                (args: any[]) => {
+                    try {
+                        for (const arg of args) {
+                            if (
+                                arg &&
+                                typeof arg === "object" &&
+                                typeof arg.content === "string"
+                            ) {
+                                arg.content = formatText(arg.content);
+                                break;
+                            }
+                        }
+                    } catch {}
                 }
-            }
-        );
+            );
+        } catch {}
     },
 
     onUnload() {
-        unpatch?.();
-        unpatch = null;
-    },
-
-    settings: require("./Settings").default,
+        try {
+            if (unpatch) {
+                unpatch();
+                unpatch = null;
+            }
+        } catch {
+            unpatch = null;
+        }
+    }
 };
