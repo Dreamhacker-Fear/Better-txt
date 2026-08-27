@@ -1,8 +1,9 @@
-import Settings from "./settings.jsx";
+import Settings from "./Settings";
+
 import { commands } from "@vendetta";
 import { storage } from "@vendetta/plugin";
-import { sendTextMessage } from "../../common/index.js";
-import { cmdDisplays } from "../../common/index.js";
+
+const patches: (() => void)[] = [];
 
 const pairs = [
     ["⦮", "⦯"],
@@ -12,10 +13,10 @@ const pairs = [
     ["♱", "♱"]
 ];
 
-const inside = [
+const decorations = [
+    "𓂃",
     "࣪˖",
     "ִֶ",
-    "𓂃",
     "♱",
     "༒︎",
     "༻",
@@ -24,27 +25,27 @@ const inside = [
     "⊰"
 ];
 
-const patches = [];
-
-function random(list) {
-    return list[Math.floor(Math.random() * list.length)];
+function random<T>(array: T[]): T {
+    return array[Math.floor(Math.random() * array.length)];
 }
 
-function styleText(input) {
-    const text = String(input ?? "").trim();
+function styleText(text: string): string {
+    const input = text.trim();
 
-    if (!text) return text;
+    if (!input) return input;
 
     const pair = random(pairs);
-    const words = text.split(" ");
+    const words = input.split(/\s+/);
+
+    const density = Number(storage.density ?? 0.25);
 
     const styled = words.map((word, index) => {
         if (
             index > 0 &&
-            index < words.length - 1 &&
-            Math.random() < (storage.density ?? 0.25)
+            index < words.length &&
+            Math.random() < density
         ) {
-            return `${random(inside)} ${word}`;
+            return `${random(decorations)} ${word}`;
         }
 
         return word;
@@ -57,52 +58,52 @@ export default {
     settings: Settings,
 
     onLoad() {
-        patches.push(
-            commands.registerCommand(
-                cmdDisplays({
-                    type: 1,
-                    applicationId: "-1",
-                    inputType: 1,
+        try {
+            patches.push(
+                commands.registerCommand({
                     name: "style",
                     description: "Randomly style text",
                     options: [
                         {
-                            type: 3,
-                            required: true,
                             name: "input",
-                            description: "Text to style"
+                            description: "Text to style",
+                            type: 3,
+                            required: true
                         }
                     ],
-                    execute: (rawArgs) => {
+                    execute: (args: any[]) => {
                         try {
-                            const args = new Map(
-                                rawArgs.map((option) => [option.name, option])
-                            );
-
-                            const input = args.get("input")?.value;
+                            const input = args?.find(
+                                (x) => x?.name === "input"
+                            )?.value;
 
                             if (!input) return;
 
-                            const output = styleText(input);
-
-                            sendTextMessage(
-                                "currentChannel",
-                                output,
-                                false
+                            console.log(
+                                "[Better TXT]",
+                                styleText(input)
                             );
                         } catch (error) {
-                            console.error("Style command error:", error);
+                            console.error(
+                                "[Better TXT] Command error:",
+                                error
+                            );
                         }
                     }
                 })
-            )
-        );
+            );
+        } catch (error) {
+            console.error(
+                "[Better TXT] Failed to register command:",
+                error
+            );
+        }
     },
 
     onUnload() {
-        for (const patch of patches) {
+        for (const unpatch of patches) {
             try {
-                patch();
+                unpatch();
             } catch {}
         }
 
