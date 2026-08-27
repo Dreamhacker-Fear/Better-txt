@@ -5,24 +5,37 @@ import { storage } from "@vendetta/plugin";
 
 const patches: (() => void)[] = [];
 
-function getActiveStyle() {
-    const savedStyles = storage.savedStyles ?? {};
-    const activeStyle = storage.activeStyle;
-
-    if (activeStyle && savedStyles[activeStyle]) {
-        return savedStyles[activeStyle];
-    }
-
+function getStyle() {
     return {
-        beginning: storage.beginning ?? "",
-        ending: storage.ending ?? "",
+        beginning: String(storage.beginning ?? ""),
+        ending: String(storage.ending ?? ""),
     };
 }
 
-function styleText(text: string): string {
-    const style = getActiveStyle();
+function styleText(text: string) {
+    const style = getStyle();
 
     return `${style.beginning}${text}${style.ending}`;
+}
+
+function showConfirmation(text: string) {
+    try {
+        const Toasts = metro.findByProps(
+            "open",
+            "showToast",
+        );
+
+        if (Toasts?.open) {
+            Toasts.open(text);
+            return;
+        }
+
+        if (Toasts?.showToast) {
+            Toasts.showToast(text);
+        }
+    } catch (error) {
+        console.log("[Better TXT] Confirmation:", text);
+    }
 }
 
 export default {
@@ -31,54 +44,90 @@ export default {
     onLoad() {
         try {
             storage.enabled = storage.enabled ?? false;
-            storage.savedStyles = storage.savedStyles ?? {};
+            storage.savedStyles =
+                storage.savedStyles ?? {};
 
-            const command = commands.registerCommand({
-                name: "style",
-                description: "Turn automatic text styling on or off.",
-                options: [
-                    {
-                        type: 3,
-                        required: true,
-                        name: "mode",
-                        description: "Type on or off",
+            const command =
+                commands.registerCommand({
+                    name: "style",
+                    description:
+                        "Control automatic text styling.",
+                    options: [
+                        {
+                            type: 3,
+                            required: true,
+                            name: "mode",
+                            description:
+                                "Type on, off, or status.",
+                        },
+                    ],
+
+                    execute: (rawArgs: any[]) => {
+                        try {
+                            const args = new Map(
+                                rawArgs.map((option) => [
+                                    option.name,
+                                    option,
+                                ]),
+                            );
+
+                            const mode = String(
+                                args.get("mode")?.value ?? "",
+                            ).toLowerCase();
+
+                            if (mode === "on") {
+                                storage.enabled = true;
+
+                                const style = getStyle();
+
+                                showConfirmation(
+                                    `Style Mode enabled\nBeginning: ${style.beginning || "(none)"}\nEnding: ${style.ending || "(none)"}`,
+                                );
+
+                                return;
+                            }
+
+                            if (mode === "off") {
+                                storage.enabled = false;
+
+                                showConfirmation(
+                                    "Style Mode disabled",
+                                );
+
+                                return;
+                            }
+
+                            if (mode === "status") {
+                                const style = getStyle();
+
+                                showConfirmation(
+                                    `Style Mode: ${
+                                        storage.enabled
+                                            ? "ON"
+                                            : "OFF"
+                                    }\nBeginning: ${
+                                        style.beginning ||
+                                        "(none)"
+                                    }\nEnding: ${
+                                        style.ending ||
+                                        "(none)"
+                                    }`,
+                                );
+
+                                return;
+                            }
+
+                            showConfirmation(
+                                "Use /style on, /style off, or /style status",
+                            );
+                        } catch (error) {
+                            console.error(
+                                "[Better TXT] Command error:",
+                                error,
+                            );
+                        }
                     },
-                ],
-
-                execute: (rawArgs: any[]) => {
-                    try {
-                        const args = new Map(
-                            rawArgs.map((option) => [
-                                option.name,
-                                option,
-                            ]),
-                        );
-
-                        const mode = String(
-                            args.get("mode")?.value ?? "",
-                        ).toLowerCase();
-
-                        if (mode === "on") {
-                            storage.enabled = true;
-                            return;
-                        }
-
-                        if (mode === "off") {
-                            storage.enabled = false;
-                            return;
-                        }
-
-                        console.log(
-                            "[Better TXT] Use /style on or /style off",
-                        );
-                    } catch (error) {
-                        console.error(
-                            "[Better TXT] Command error:",
-                            error,
-                        );
-                    }
-                },
-            });
+                });
 
             patches.push(command);
 
@@ -87,7 +136,7 @@ export default {
 
             if (!MessageActions?.sendMessage) {
                 console.warn(
-                    "[Better TXT] sendMessage was not found",
+                    "[Better TXT] sendMessage not found",
                 );
                 return;
             }
@@ -95,41 +144,43 @@ export default {
             const originalSend =
                 MessageActions.sendMessage;
 
-            MessageActions.sendMessage = function (
-                channelId: string,
-                message: any,
-                ...rest: any[]
-            ) {
-                try {
-                    if (
-                        storage.enabled &&
-                        message &&
-                        typeof message.content === "string" &&
-                        !message._betterTxtStyled &&
-                        !message.content.startsWith("/")
-                    ) {
-                        message = {
-                            ...message,
-                            content: styleText(
-                                message.content,
-                            ),
-                            _betterTxtStyled: true,
-                        };
+            MessageActions.sendMessage =
+                function (
+                    channelId: string,
+                    message: any,
+                    ...rest: any[]
+                ) {
+                    try {
+                        if (
+                            storage.enabled &&
+                            message &&
+                            typeof message.content ===
+                                "string" &&
+                            !message._betterTxtStyled &&
+                            !message.content.startsWith("/")
+                        ) {
+                            message = {
+                                ...message,
+                                content: styleText(
+                                    message.content,
+                                ),
+                                _betterTxtStyled: true,
+                            };
+                        }
+                    } catch (error) {
+                        console.error(
+                            "[Better TXT] Formatting error:",
+                            error,
+                        );
                     }
-                } catch (error) {
-                    console.error(
-                        "[Better TXT] Formatting error:",
-                        error,
-                    );
-                }
 
-                return originalSend.call(
-                    this,
-                    channelId,
-                    message,
-                    ...rest,
-                );
-            };
+                    return originalSend.call(
+                        this,
+                        channelId,
+                        message,
+                        ...rest,
+                    );
+                };
 
             patches.push(() => {
                 MessageActions.sendMessage =
